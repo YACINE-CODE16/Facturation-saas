@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, EmailStr
 from fastapi.responses import FileResponse
+from fastapi.middleware.cors import CORSMiddleware
 import stripe
 import pdfkit
 import smtplib
@@ -9,15 +10,24 @@ import os
 
 app = FastAPI()
 
+# Activation du middleware CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Remplace "*" par l'URL de ton frontend si nécessaire
+    allow_credentials=True,
+    allow_methods=["*"],  # Autorise toutes les méthodes HTTP (GET, POST, OPTIONS, etc.)
+    allow_headers=["*"],  # Autorise tous les en-têtes
+)
+
 # Récupération des variables d'environnement (Stripe, SendGrid, etc.)
-STRIPE_API_KEY = os.getenv("STRIPE_API_KEY")  # ex: sk_test_...
-SENDGRID_EMAIL = os.getenv("SENDGRID_EMAIL")  # ex: ton_email_sendgrid
-SENDGRID_PASSWORD = os.getenv("SENDGRID_PASSWORD")  # ex: mot_de_passe_sendgrid
+STRIPE_API_KEY = os.getenv("STRIPE_API_KEY")
+SENDGRID_EMAIL = os.getenv("SENDGRID_EMAIL")
+SENDGRID_PASSWORD = os.getenv("SENDGRID_PASSWORD")
 
 if STRIPE_API_KEY:
     stripe.api_key = STRIPE_API_KEY
 else:
-    print("Avertissement : STRIPE_API_KEY n'est pas défini en variable d'environnement.")
+    print("⚠️ Avertissement : STRIPE_API_KEY n'est pas défini.")
 
 # Modèle Pydantic pour la facture
 class Invoice(BaseModel):
@@ -29,10 +39,14 @@ class Invoice(BaseModel):
 def root():
     return {"message": "Bienvenue sur l'API Fast Facture !"}
 
-# Endpoint pour générer la facture (PDF) et l'envoyer par e-mail
+#  Endpoint pour générer la facture (PDF) et l'envoyer par e-mail
 @app.post("/generate-invoice")
 def generate_invoice(invoice: Invoice):
-    # Template HTML pour la facture
+    #  Vérifier que le montant est valide
+    if invoice.amount <= 0:
+        raise HTTPException(status_code=400, detail="Le montant doit être supérieur à zéro.")
+
+    #  Template HTML pour la facture
     html_content = f"""
     <html>
     <head>
@@ -53,13 +67,14 @@ def generate_invoice(invoice: Invoice):
     </html>
     """
 
-    # Génération du PDF avec pdfkit (nécessite wkhtmltopdf installé sur le serveur)
+    #  Génération du PDF avec pdfkit
+    pdf_path = "/tmp/facture.pdf"  # Dossier temporaire compatible avec Render
     try:
-        pdfkit.from_string(html_content, "facture.pdf")
+        pdfkit.from_string(html_content, pdf_path)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erreur PDFKit : {str(e)}")
 
-    # Envoi d'e-mail via SMTP SendGrid (optionnel)
+    #  Envoi d'e-mail via SMTP SendGrid (optionnel)
     if SENDGRID_EMAIL and SENDGRID_PASSWORD:
         try:
             msg = EmailMessage()
@@ -68,9 +83,8 @@ def generate_invoice(invoice: Invoice):
             msg["To"] = invoice.client_email
             msg.set_content("Voici votre facture en pièce jointe.")
 
-            with open("facture.pdf", "rb") as f:
-                pdf_data = f.read()
-                msg.add_attachment(pdf_data, maintype="application", subtype="pdf", filename="facture.pdf")
+            with open(pdf_path, "rb") as f:
+                msg.add_attachment(f.read(), maintype="application", subtype="pdf", filename="facture.pdf")
 
             with smtplib.SMTP_SSL("smtp.sendgrid.net", 465) as smtp:
                 smtp.login("apikey", SENDGRID_PASSWORD)  # Pour SendGrid, user = 'apikey'
@@ -79,12 +93,12 @@ def generate_invoice(invoice: Invoice):
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Erreur envoi e-mail : {str(e)}")
     else:
-        print("SendGrid non configuré ou inactif, la facture ne sera pas envoyée par email.")
+        print("⚠️ SendGrid non configuré, la facture ne sera pas envoyée par email.")
 
-    # Retourne le PDF en pièce jointe (ou juste un FileResponse)
-    return FileResponse("facture.pdf", media_type="application/pdf", filename="facture.pdf")
+    # Retourne le PDF en pièce jointe
+    return FileResponse(pdf_path, media_type="application/pdf", filename="facture.pdf")
 
-# Endpoint pour créer un lien de paiement Stripe
+#  Endpoint pour créer un lien de paiement Stripe
 @app.post("/payment-link")
 def payment_link(invoice: Invoice):
     if not STRIPE_API_KEY:
