@@ -1,0 +1,7 @@
+fastapi
+uvicorn
+stripe
+pdfkit
+pydantic[email]
+smtplib
+email-validator
