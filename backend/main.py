@@ -1,0 +1,110 @@
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel, EmailStr
+from fastapi.responses import FileResponse
+import stripe
+import pdfkit
+import smtplib
+from email.message import EmailMessage
+import os
+
+app = FastAPI()
+
+# Récupération des variables d'environnement (Stripe, SendGrid, etc.)
+STRIPE_API_KEY = os.getenv("STRIPE_API_KEY")  # ex: sk_test_...
+SENDGRID_EMAIL = os.getenv("SENDGRID_EMAIL")  # ex: ton_email_sendgrid
+SENDGRID_PASSWORD = os.getenv("SENDGRID_PASSWORD")  # ex: mot_de_passe_sendgrid
+
+if STRIPE_API_KEY:
+    stripe.api_key = STRIPE_API_KEY
+else:
+    print("Avertissement : STRIPE_API_KEY n'est pas défini en variable d'environnement.")
+
+# Modèle Pydantic pour la facture
+class Invoice(BaseModel):
+    client_name: str
+    client_email: EmailStr
+    amount: float
+
+@app.get("/")
+def root():
+    return {"message": "Bienvenue sur l'API Fast Facture !"}
+
+# Endpoint pour générer la facture (PDF) et l'envoyer par e-mail
+@app.post("/generate-invoice")
+def generate_invoice(invoice: Invoice):
+    # Template HTML pour la facture
+    html_content = f"""
+    <html>
+    <head>
+        <meta charset='utf-8'>
+        <style>
+            body {{ font-family: Arial, sans-serif; margin: 20px; }}
+            h2 {{ color: #333; }}
+            .facture {{ border: 1px solid #ddd; padding: 20px; border-radius: 5px; }}
+        </style>
+    </head>
+    <body>
+        <div class='facture'>
+            <h2>Facture pour {invoice.client_name}</h2>
+            <p>Montant : {invoice.amount} EUR</p>
+            <p>Merci pour votre confiance.</p>
+        </div>
+    </body>
+    </html>
+    """
+
+    # Génération du PDF avec pdfkit (nécessite wkhtmltopdf installé sur le serveur)
+    try:
+        pdfkit.from_string(html_content, "facture.pdf")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur PDFKit : {str(e)}")
+
+    # Envoi d'e-mail via SMTP SendGrid (optionnel)
+    if SENDGRID_EMAIL and SENDGRID_PASSWORD:
+        try:
+            msg = EmailMessage()
+            msg["Subject"] = "Votre Facture"
+            msg["From"] = SENDGRID_EMAIL
+            msg["To"] = invoice.client_email
+            msg.set_content("Voici votre facture en pièce jointe.")
+
+            with open("facture.pdf", "rb") as f:
+                pdf_data = f.read()
+                msg.add_attachment(pdf_data, maintype="application", subtype="pdf", filename="facture.pdf")
+
+            with smtplib.SMTP_SSL("smtp.sendgrid.net", 465) as smtp:
+                smtp.login("apikey", SENDGRID_PASSWORD)  # Pour SendGrid, user = 'apikey'
+                smtp.send_message(msg)
+
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Erreur envoi e-mail : {str(e)}")
+    else:
+        print("SendGrid non configuré ou inactif, la facture ne sera pas envoyée par email.")
+
+    # Retourne le PDF en pièce jointe (ou juste un FileResponse)
+    return FileResponse("facture.pdf", media_type="application/pdf", filename="facture.pdf")
+
+# Endpoint pour créer un lien de paiement Stripe
+@app.post("/payment-link")
+def payment_link(invoice: Invoice):
+    if not STRIPE_API_KEY:
+        raise HTTPException(status_code=500, detail="Clé Stripe non configurée.")
+
+    try:
+        session = stripe.checkout.Session.create(
+            payment_method_types=['card'],
+            line_items=[{
+                'price_data': {
+                    'currency': 'eur',
+                    'product_data': {'name': 'Facture Fast Facture'},
+                    'unit_amount': int(invoice.amount * 100),
+                },
+                'quantity': 1,
+            }],
+            mode='payment',
+            success_url='https://tonsite.com/success',  # URL de succès
+            cancel_url='https://tonsite.com/cancel',    # URL d'annulation
+        )
+        return {"url": session.url}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur Stripe : {str(e)}")
