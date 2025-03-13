@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, EmailStr
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
-from supabase import create_client, Clien
+from supabase import create_client, Client
 import stripe
 import pdfkit
 import smtplib
