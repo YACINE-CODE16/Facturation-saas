@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, EmailStr
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
+from supabase import create_client, Clien
 import stripe
 import pdfkit
 import smtplib
@@ -122,3 +123,20 @@ def payment_link(invoice: Invoice):
         return {"url": session.url}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erreur Stripe : {str(e)}")
+
+@app.post("/subscribe")
+def subscribe(email: str, name: str = None):
+    """ Ajoute un client à la base de données """
+    existing_client = supabase.table("clients").select("*").eq("email", email).execute()
+
+    if existing_client.data:
+        return {"message": "Cet email est déjà enregistré."}
+
+    data = {"email": email, "name": name}
+    response = supabase.table("clients").insert(data).execute()
+
+    if response.get("error"):
+        raise HTTPException(status_code=500, detail="Erreur Supabase : " + str(response["error"]))
+
+    return {"message": "Email enregistré avec succès !"}
+
