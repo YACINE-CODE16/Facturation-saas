@@ -4,3 +4,4 @@ stripe
 pdfkit
 pydantic[email]
 email-validator
+supabase
