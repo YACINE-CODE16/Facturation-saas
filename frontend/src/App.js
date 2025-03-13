@@ -1,5 +1,7 @@
+// App.js
 import React, { useState } from 'react';
 import axios from 'axios';
+import { SubscribeForm } from './SubscribeForm'; // 🔥 Import correct ici
 
 function App() {
   const [clientName, setClientName] = useState('');
@@ -8,14 +10,10 @@ function App() {
   const [pdfUrl, setPdfUrl] = useState('');
   const [paymentLink, setPaymentLink] = useState('');
 
-  // URL de base de ton API (backend) :
-  // Idéalement stockée en variable d'environnement Vercel (process.env.REACT_APP_API_URL)
-  // ou en dur, par exemple :
   const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://facturation-saas.onrender.com';
 
   const handleGenerateInvoice = async () => {
     try {
-      // Envoi d'une requête POST à /generate-invoice
       const response = await axios.post(
         `${API_BASE_URL}/generate-invoice`,
         {
@@ -23,10 +21,9 @@ function App() {
           client_email: clientEmail,
           amount: Number(amount)
         },
-        { responseType: 'blob' } // Pour recevoir un PDF (blob)
+        { responseType: 'blob' }
       );
 
-      // Le backend renvoie un PDF en blob
       const pdfBlob = new Blob([response.data], { type: 'application/pdf' });
       const pdfUrlLocal = URL.createObjectURL(pdfBlob);
       setPdfUrl(pdfUrlLocal);
@@ -40,7 +37,6 @@ function App() {
 
   const handlePaymentLink = async () => {
     try {
-      // Envoi d'une requête POST à /payment-link
       const response = await axios.post(`${API_BASE_URL}/payment-link`, {
         client_name: clientName,
         client_email: clientEmail,
@@ -105,48 +101,11 @@ function App() {
           </a>
         </div>
       )}
+
+      {/* Intégration du formulaire d'abonnement */}
+      <SubscribeForm />
     </div>
   );
 }
 
 export default App;
-
-function SubscribeForm() {
-  const [email, setEmail] = useState("");
-  const [name, setName] = useState("");
-  const [message, setMessage] = useState("");
-
-  const handleSubscribe = async () => {
-    try {
-      const response = await axios.post("https://facturation-saas.onrender.com/subscribe", {
-        email,
-        name
-      });
-      setMessage(response.data.message);
-    } catch (error) {
-      setMessage("Erreur lors de l'enregistrement.");
-    }
-  };
-
-  return (
-    <div>
-      <h2>S'abonner aux offres</h2>
-      <input
-        type="text"
-        placeholder="Votre nom"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-      />
-      <input
-        type="email"
-        placeholder="Votre email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-      />
-      <button onClick={handleSubscribe}>S'abonner</button>
-      <p>{message}</p>
-    </div>
-  );
-}
-
-export default SubscribeForm;
