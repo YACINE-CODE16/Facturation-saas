@@ -126,8 +126,10 @@ def payment_link(invoice: Invoice):
 
 @app.post("/subscribe")
 def subscribe(email: str, name: str = None):
-    """ Ajoute un client à la base de données """
+    print(f"📩 Requête reçue : email={email}, name={name}")  # Log pour voir si la requête arrive
+
     existing_client = supabase.table("clients").select("*").eq("email", email).execute()
+    print(f"🔍 Résultat de la recherche : {existing_client}")  # Voir si l'email existe déjà
 
     if existing_client.data:
         return {"message": "Cet email est déjà enregistré."}
@@ -138,4 +140,6 @@ def subscribe(email: str, name: str = None):
     if response.get("error"):
         raise HTTPException(status_code=500, detail="Erreur Supabase : " + str(response["error"]))
 
+    print("✅ Inscription réussie !")
     return {"message": "Email enregistré avec succès !"}
+
