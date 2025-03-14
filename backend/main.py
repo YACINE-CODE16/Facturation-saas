@@ -19,6 +19,15 @@ app.add_middleware(
     allow_methods=["*"],  # Autorise toutes les méthodes HTTP (GET, POST, OPTIONS, etc.)
     allow_headers=["*"],  # Autorise tous les en-têtes
 )
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+
+if not SUPABASE_URL or not SUPABASE_KEY:
+    print("⚠️ Erreur : Supabase URL ou API KEY manquante.")
+    exit(1)
+
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+print("✅ Connexion à Supabase réussie !")
 
 # Récupération des variables d'environnement (Stripe, SendGrid, etc.)
 STRIPE_API_KEY = os.getenv("STRIPE_API_KEY")
