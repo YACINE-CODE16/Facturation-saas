@@ -126,20 +126,24 @@ def payment_link(invoice: Invoice):
 
 @app.post("/subscribe")
 def subscribe(email: str, name: str = None):
-    print(f"📩 Requête reçue : email={email}, name={name}")  # Log pour voir si la requête arrive
+    """ Vérifie si l'email existe déjà et l'ajoute sinon """
+    try:
+        # Vérifier si l'email existe déjà dans la base de données
+        existing_client = supabase.table("clients").select("*").eq("email", email).execute()
 
-    existing_client = supabase.table("clients").select("*").eq("email", email).execute()
-    print(f"🔍 Résultat de la recherche : {existing_client}")  # Voir si l'email existe déjà
+        if existing_client.data:  # Si l'email est déjà enregistré
+            return {"message": "Cet email est déjà enregistré."}
 
-    if existing_client.data:
-        return {"message": "Cet email est déjà enregistré."}
+        # Insérer le nouvel email dans la base de données
+        data = {"email": email, "name": name}
+        response = supabase.table("clients").insert(data).execute()
 
-    data = {"email": email, "name": name}
-    response = supabase.table("clients").insert(data).execute()
+        if "error" in response and response["error"]:  # Vérification d'erreur dans la réponse
+            raise HTTPException(status_code=500, detail="Erreur Supabase : " + str(response["error"]))
 
-    if response.get("error"):
-        raise HTTPException(status_code=500, detail="Erreur Supabase : " + str(response["error"]))
+        return {"message": "Email enregistré avec succès !"}
 
-    print("✅ Inscription réussie !")
-    return {"message": "Email enregistré avec succès !"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur lors de l'enregistrement : {str(e)}")
+
 
