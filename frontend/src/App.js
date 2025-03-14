@@ -1,7 +1,7 @@
 // App.js
 import React, { useState } from 'react';
 import axios from 'axios';
-import { SubscribeForm } from './SubscribeForm'; // 🔥 Import correct ici
+import { SubscribeForm } from "./SubscribeForm"; // ✅ Correct
 
 
 function App() {
