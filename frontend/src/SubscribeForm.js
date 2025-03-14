@@ -40,7 +40,7 @@ export function SubscribeForm() {
 }
 const handleSubscribe = async () => {
   try {
-    console.log("📩 Envoi des données :", { email, name }); // Vérifier ce qui est envoyé
+    console.log("📩 Envoi des données :", { email, name }); // Voir si la requête part bien du frontend
 
     const response = await axios.post("https://facturation-saas.onrender.com/subscribe", {
       email,
@@ -50,8 +50,9 @@ const handleSubscribe = async () => {
     console.log("✅ Réponse API :", response.data); // Voir la réponse de l'API
     setMessage(response.data.message);
   } catch (error) {
-    console.error("❌ Erreur API :", error);
+    console.error("❌ Erreur API :", error.response?.data || error.message);
     setMessage("Erreur lors de l'enregistrement.");
   }
 };
+
 
