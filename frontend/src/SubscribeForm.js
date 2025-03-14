@@ -1,8 +1,7 @@
 // SubscribeForm.js
 import React, { useState } from 'react';
 import axios from 'axios';
-
-function SubscribeForm() {
+export function SubscribeForm() {
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [message, setMessage] = useState("");
@@ -40,4 +39,3 @@ function SubscribeForm() {
   );
 }
 
-export { SubscribeForm }; // ✅ Export correct
