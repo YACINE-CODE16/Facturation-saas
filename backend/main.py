@@ -139,4 +139,3 @@ def subscribe(email: str, name: str = None):
         raise HTTPException(status_code=500, detail="Erreur Supabase : " + str(response["error"]))
 
     return {"message": "Email enregistré avec succès !"}
-
