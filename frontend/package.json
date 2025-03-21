@@ -12,4 +12,9 @@
     "start": "react-scripts start",
     "build": "react-scripts build"
   }
+  "devDependencies": {
+  "tailwindcss": "^3.0.24",
+  "postcss": "^8.4.6",
+  "autoprefixer": "^10.4.2"
+ }
 }
